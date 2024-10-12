@@ -1,20 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as faceapi from 'face-api.js';
-import { Camera, Smartphone } from 'lucide-react';
+import { Camera,  Volume2 } from 'lucide-react';
 
 function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [faceCount, setFaceCount] = useState(0);
-  const [isAttentive, setIsAttentive] = useState(false);
-  const [otherDevices, setOtherDevices] = useState(0);
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [modelLoadingError, setModelLoadingError] = useState<string | null>(null);
+  const [headMovementDetected, setHeadMovementDetected] = useState(false);
+  const [isTalking, setIsTalking] = useState(false);
+  const SMALL_TURN_THRESHOLD = 40;
+  const TALKING_THRESHOLD = 5;
+  let previousNosePosition = { x: 0, y: 0 };
+  let previousMouthOpenness = 0;
 
   useEffect(() => {
     const loadModels = async () => {
       try {
-        const MODEL_URL = "http://localhost:5173"+"/models";
+        const MODEL_URL = "http://localhost:5173" + "/models";
         await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
           faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
@@ -70,32 +74,49 @@ function App() {
 
         setFaceCount(detections.length);
 
-        // Simple attentiveness check (if the person is looking straight)
-        const isAttentive = detections.some(detection => {
+        if (detections.length > 0) {
+          const detection = detections[0];
           const landmarks = detection.landmarks;
           const leftEye = landmarks.getLeftEye();
           const rightEye = landmarks.getRightEye();
-          const eyeDistance = faceapi.euclideanDistance([leftEye[0].x, leftEye[0].y], [rightEye[3].x, rightEye[3].y]);
-          const faceWidth = detection.detection.box.width;
-          return eyeDistance / faceWidth > 0.2; // Threshold for attentiveness
-        });
+          // Head movement check
+          const nose = landmarks.getNose()[0];
+          const noseMovement = Math.sqrt(
+            Math.pow(nose.x - previousNosePosition.x, 2) + Math.pow(nose.y - previousNosePosition.y, 2)
+          );
+          setHeadMovementDetected(noseMovement > SMALL_TURN_THRESHOLD);
+          previousNosePosition = { x: nose.x, y: nose.y };
 
-        setIsAttentive(isAttentive);
+          // Talking detection
+          const mouth = landmarks.getMouth();
+          const topLip = mouth[14];
+          const bottomLip = mouth[18];
+          const mouthOpenness = Math.abs(topLip.y - bottomLip.y);
+          const mouthMovement = Math.abs(mouthOpenness - previousMouthOpenness);
+          setIsTalking(mouthMovement > TALKING_THRESHOLD);
+          previousMouthOpenness = mouthOpenness;
+        }
 
-        // Simulating other device detection (random for demonstration)
-        setOtherDevices(Math.floor(Math.random() * 3));
+
       }
-    }, 3000);
+    }, 1000);
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center p-4">
-      <h1 className="text-3xl font-bold mb-4">Face Detection App</h1>
-      {!isModelLoaded && !modelLoadingError && <p className="text-lg mb-4">Loading face detection models...</p>}
-      {modelLoadingError && <p className="text-lg mb-4 text-red-500">{modelLoadingError}</p>}
+    <div className="min-h-screen bg-gradient-to-b from-gray-100 to-gray-200 flex flex-col items-center justify-center p-4 space-y-6">
+      {!isModelLoaded && !modelLoadingError && (
+        <p className="text-lg font-medium text-gray-700 animate-pulse">
+          Loading face detection models...
+        </p>
+      )}
+      {modelLoadingError && (
+        <p className="text-lg font-medium text-red-600 bg-red-100 px-4 py-2 rounded-md">
+          {modelLoadingError}
+        </p>
+      )}
       {isModelLoaded && (
-        <>
-          <div className="relative">
+        <div className="">
+          <div className="relative rounded-xl overflow-hidden shadow-2xl">
             <video
               ref={videoRef}
               autoPlay
@@ -103,16 +124,31 @@ function App() {
               onPlay={handleVideoPlay}
               width="720"
               height="560"
-              className="rounded-lg shadow-lg"
+              className="rounded-xl"
             />
             <canvas ref={canvasRef} className="absolute top-0 left-0" />
           </div>
-          <div className="mt-4 bg-white p-4 rounded-lg shadow-md">
-            <p className="flex items-center"><Camera className="mr-2" /> Faces detected: {faceCount}</p>
-            <p className="flex items-center mt-2">Attentive: {isAttentive ? 'Yes' : 'No'}</p>
-            <p className="flex items-center mt-2"><Smartphone className="mr-2" /> Other devices: {otherDevices}</p>
+          <div className="bg-white p-6 rounded-xl shadow-lg space-y-4 w-full max-w-md">
+            <p className="flex items-center text-lg font-medium text-gray-800">
+              <Camera className="mr-3 text-primary" /> 
+              Faces detected: <span className="ml-2 font-bold text-primary">{faceCount}</span>
+            </p>
+            <p className="flex items-center text-lg font-medium text-gray-800">
+              <span className="mr-3">👤</span> 
+              Head Movement: 
+              <span className={`ml-2 font-bold ${headMovementDetected ? 'text-green-600' : 'text-yellow-600'}`}>
+                {headMovementDetected ? 'Moved Head' : 'No Movement'}
+              </span>
+            </p>
+            <p className="flex items-center text-lg font-medium text-gray-800">
+              <Volume2 className="mr-3 text-primary" /> 
+              Talking: 
+              <span className={`ml-2 font-bold ${isTalking ? 'text-green-600' : 'text-yellow-600'}`}>
+                {isTalking ? 'Yes' : 'No'}
+              </span>
+            </p>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

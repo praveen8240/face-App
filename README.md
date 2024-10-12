@@ -1,3 +1,4 @@
-# face-App
+Commands to run
 
-[Edit in StackBlitz next generation editor ⚡️](https://stackblitz.com/~/github.com/praveen8240/face-App)
+1.         npm install
+2.         npm run dev
