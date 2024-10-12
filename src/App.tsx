@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as faceapi from 'face-api.js';
-import { Camera,  Volume2 } from 'lucide-react';
+import { Camera,  Volume2,Eye,EyeOff } from 'lucide-react';
 
 function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -10,6 +10,7 @@ function App() {
   const [modelLoadingError, setModelLoadingError] = useState<string | null>(null);
   const [headMovementDetected, setHeadMovementDetected] = useState(false);
   const [isTalking, setIsTalking] = useState(false);
+  const [showLandmarks, setShowLandmarks] = useState(false);
   const SMALL_TURN_THRESHOLD = 40;
   const TALKING_THRESHOLD = 5;
   let previousNosePosition = { x: 0, y: 0 };
@@ -126,27 +127,34 @@ function App() {
               height="560"
               className="rounded-xl"
             />
-            <canvas ref={canvasRef} className="absolute top-0 left-0" />
+            <canvas ref={canvasRef} className={`${showLandmarks? 'absolute' : 'hidden'}  top-0 left-0`} />
           </div>
-          <div className="bg-white p-6 rounded-xl shadow-lg space-y-4 w-full max-w-md">
-            <p className="flex items-center text-lg font-medium text-gray-800">
+          <div className="mt-2 max-w-md">
+            <p className="flex items-center text-md font-medium text-gray-800">
               <Camera className="mr-3 text-primary" /> 
               Faces detected: <span className="ml-2 font-bold text-primary">{faceCount}</span>
             </p>
-            <p className="flex items-center text-lg font-medium text-gray-800">
+            <p className="flex items-center text-md font-medium text-gray-800">
               <span className="mr-3">👤</span> 
               Head Movement: 
               <span className={`ml-2 font-bold ${headMovementDetected ? 'text-green-600' : 'text-yellow-600'}`}>
                 {headMovementDetected ? 'Moved Head' : 'No Movement'}
               </span>
             </p>
-            <p className="flex items-center text-lg font-medium text-gray-800">
+            <p className="flex items-center text-md font-medium text-gray-800">
               <Volume2 className="mr-3 text-primary" /> 
               Talking: 
               <span className={`ml-2 font-bold ${isTalking ? 'text-green-600' : 'text-yellow-600'}`}>
                 {isTalking ? 'Yes' : 'No'}
               </span>
             </p>
+            <button
+              onClick={() => setShowLandmarks((prev) => !prev)}
+              className="px-4 py-2 mt-4 text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+            >
+              {showLandmarks ? <EyeOff className="inline mr-2" /> : <Eye className="inline mr-2" />}
+              {showLandmarks ? 'Hide Landmarks' : 'Show Landmarks'}
+            </button>
           </div>
         </div>
       )}
