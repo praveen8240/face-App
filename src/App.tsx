@@ -19,8 +19,8 @@ function App() {
   useEffect(() => {
     const loadModels = async () => {
       try {
-        const MODEL_URL = "http://localhost:5173" + "/models";
-        await Promise.all([
+        const MODEL_URL = `${window.location.origin}/models`;
+         await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
           faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
           faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
