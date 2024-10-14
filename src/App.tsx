@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as faceapi from 'face-api.js';
-import { Camera,  Volume2,Eye,EyeOff } from 'lucide-react';
+import { Camera,  Volume2,Eye,EyeOff, Crosshair } from 'lucide-react';
 
 function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -11,19 +11,24 @@ function App() {
   const [headMovementDetected, setHeadMovementDetected] = useState(false);
   const [isTalking, setIsTalking] = useState(false);
   const [showLandmarks, setShowLandmarks] = useState(false);
+  const [eyeMovement, setEyeMovement] = useState('Center');
   const SMALL_TURN_THRESHOLD = 40;
   const TALKING_THRESHOLD = 5;
+  const EYE_MOVEMENT_THRESHOLD = 0.15;
   let previousNosePosition = { x: 0, y: 0 };
   let previousMouthOpenness = 0;
+  let previousLeftEyePosition = { x: 0, y: 0 };
+  let previousRightEyePosition = { x: 0, y: 0 };
 
   useEffect(() => {
     const loadModels = async () => {
       try {
         const MODEL_URL = `${window.location.origin}/models`;
-         await Promise.all([
+        await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
           faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-          faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL)
+          faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ]);
 
         console.log('Models loaded successfully');
@@ -96,8 +101,32 @@ function App() {
           const mouthMovement = Math.abs(mouthOpenness - previousMouthOpenness);
           setIsTalking(mouthMovement > TALKING_THRESHOLD);
           previousMouthOpenness = mouthOpenness;
-        }
 
+
+
+                   // Eye movement detection
+         const leftEyeCenter = { x: leftEye.reduce((sum, p) => sum + p.x, 0) / leftEye.length, y: leftEye.reduce((sum, p) => sum + p.y, 0) / leftEye.length };
+         const rightEyeCenter = { x: rightEye.reduce((sum, p) => sum + p.x, 0) / rightEye.length, y: rightEye.reduce((sum, p) => sum + p.y, 0) / rightEye.length };
+         
+         const leftEyeMovement = Math.sqrt(Math.pow(leftEyeCenter.x - previousLeftEyePosition.x, 2) + Math.pow(leftEyeCenter.y - previousLeftEyePosition.y, 2));
+         const rightEyeMovement = Math.sqrt(Math.pow(rightEyeCenter.x - previousRightEyePosition.x, 2) + Math.pow(rightEyeCenter.y - previousRightEyePosition.y, 2));
+
+         if (leftEyeMovement > EYE_MOVEMENT_THRESHOLD || rightEyeMovement > EYE_MOVEMENT_THRESHOLD) {
+           const horizontalMovement = (leftEyeCenter.x - previousLeftEyePosition.x + rightEyeCenter.x - previousRightEyePosition.x) / 2;
+           const verticalMovement = (leftEyeCenter.y - previousLeftEyePosition.y + rightEyeCenter.y - previousRightEyePosition.y) / 2;
+
+           if (Math.abs(horizontalMovement) > Math.abs(verticalMovement)) {
+             setEyeMovement(horizontalMovement > 0 ? 'Right' : 'Left');
+           } else {
+             setEyeMovement(verticalMovement > 0 ? 'Down' : 'Up');
+           }
+         } else {
+           setEyeMovement('Center');
+         }
+
+         previousLeftEyePosition = leftEyeCenter;
+         previousRightEyePosition = rightEyeCenter;
+        }
 
       }
     }, 1000);
@@ -127,7 +156,7 @@ function App() {
               height="560"
               className="rounded-xl"
             />
-            <canvas ref={canvasRef} className={`${showLandmarks? 'absolute' : 'hidden'}  top-0 left-0`} />
+            <canvas ref={canvasRef} className={`${showLandmarks? 'absolute' : 'hidden'} w-full h-full  top-0 left-0`} />
           </div>
           <div className="mt-2 max-w-md">
             <p className="flex items-center text-md font-medium text-gray-800">
@@ -146,6 +175,13 @@ function App() {
               Talking: 
               <span className={`ml-2 font-bold ${isTalking ? 'text-green-600' : 'text-yellow-600'}`}>
                 {isTalking ? 'Yes' : 'No'}
+              </span>
+            </p>
+            <p className="flex items-center text-md font-medium text-gray-800">
+              <Crosshair className="mr-3 text-primary" /> 
+              Eye Movement: 
+              <span className="ml-2 font-bold text-blue-600">
+                {eyeMovement}
               </span>
             </p>
             <button
